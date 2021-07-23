@@ -23,7 +23,9 @@ class ApplicationController extends AbstractController
     public function index(): Response
     {
         $array = $this->adbS->getApiData();
-        $this->adbS->generateJsonToCsv($array);
+        // dump($array); exit;
+        // $this->adbS->generateJsonToCsv($array);
+        $this->adbS->insertToDatabase($array);
 
         return $this->render('application/index.html.twig', [
             'controller_name' => 'ApplicationController',
