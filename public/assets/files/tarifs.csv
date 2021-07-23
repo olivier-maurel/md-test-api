@@ -1,0 +1,2 @@
+tarif_id,catalogue_id,materiel_id,prix_achat_groupe,prix_distributeur,prix_premiere_monte,taux_restitution,remise_distributeur,markup,markup_agence,reconditionne,soumis_a_commission,debut,fin,prix_cession_agence,prix_cession_vendeur,prix_achat_groupe_calcule,prix_distributeur_calcule,prix_premiere_monte_calcule,achat
+29619,1459,18169,0,0,,0,0,0,0,,0,"2021-04-01 00:00:00",,0,0,0,0,,

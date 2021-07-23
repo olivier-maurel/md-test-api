@@ -1,0 +1,19 @@
+materiel_id,type_id,fabricant_id,debut_commercialisation,fin_commercialisation,prix_public,nom_court,nom,commentaire,client_id,caracteristiques,tarifs_grandeurs,images,marque,reference_fabricant,_score
+18171,4336,7,"2021-06-21 15:00:33",,72.8,"Electronic HP Care Pack 3 ans sur site J+1 pour Prodesk",,,209,,,,"Hewlett Packard",U10N3E,8.605489
+18173,4335,7,"2021-06-21 15:00:33",,695.5,"HP ProDesk 400 G7 / i3-10100T / 8GB / SSD 256GB / Format MT",,,209,,,,"Hewlett Packard",293Y4EA,8.605489
+18174,4338,7,"2021-06-21 15:00:34",,229.138,"HP E23 G4 FHD - Ecran 23"" FHD",,,209,,,,"Hewlett Packard",9VF96AA,8.605489
+18178,4336,7,"2021-06-21 15:00:34",,18.2,"Electronic HP Care Pack 3 ans sur site J+1 pour Ecran Z32",,,209,,,,"Hewlett Packard",U0VM6E,8.605489
+18180,4339,1726,"2021-06-21 15:00:34",,0,"Workstation : Veeam Backup & Replication Standard",,,209,,11,,"Quadria - Veeam",H-VBRSTD-0W-R0000-19,8.605489
+18165,4335,7,"2021-06-21 15:00:32",,672.321,"HP ProDesk 400 G6 / i3-10100T / 8GB / SSD 256GB / Format Mini",,,209,,,,"Hewlett Packard",294X3EA,8.353926
+18167,4337,1724,"2021-06-21 15:00:33",,5.252,"Câble réseau RJ45 CAT 6 F/UTP - 3m Gris",,,209,,,,MCL,FCC6BM-3M,8.353926
+18175,4338,7,"2021-06-21 15:00:34",,289.679,"HP E27 G4 FHD - Ecran 27"" FHD",,,209,,,,"Hewlett Packard",9VG71AA,8.353926
+18176,4336,7,"2021-06-21 15:00:34",,5.057,"Electronic HP Care Pack 3 ans sur site J+1 pour Ecran E23 et E27",,,209,,,,"Hewlett Packard",U0VM5E,8.353926
+18179,4339,1725,"2021-06-21 15:00:34",,0,"Microsoft 365 Apps for Business -> Le client souhaite seulement le pack Office sur un poste sans messagerie",,,209,,11,,Microsoft,SK103874,8.353926
+18172,4340,1723,"2021-06-21 15:56:09",,0,"Pc Fixe Basic HP ProDesk 400 G7 MT",,,209,,,,BEPROACTIV,BEPCFIXEBASIC-3,8.353926
+18163,4334,1723,"2021-06-21 15:00:32",,0,"Pc Fixe Basic",,,209,10,,,BEPROACTIV,BEPCFIXEBASIC,8.11053
+18166,4336,7,"2021-06-21 15:00:33",,81.9,"Electronic HP Care Pack 3 ans sur site J+1 pour Prodesk",,,209,,,,"Hewlett Packard",U6578E,8.11053
+18170,4335,7,"2021-06-21 15:00:33",,688.077,"HP ProDesk 400 G7 / i3-10100T / 8GB / SSD 256GB / Format SFF",,,209,,,,"Hewlett Packard",293Y8EA,8.11053
+18177,4338,7,"2021-06-21 15:00:34",,1028.18,"HP Z32 - Ecran 31,5"" 4K",,,209,,,,"Hewlett Packard",1AA81A4,8.11053
+18168,35,1723,"2021-06-21 17:19:20",,199,"Prestation de mise en service et installation sur site",,,209,,,,BEPROACTIV,BEPROACTIVINSTALLPOSTE,8.11053
+18164,4340,1723,"2021-06-21 15:56:19",,0,"Pc Fixe Basic HP ProDesk 400 G6 Mini",,,209,,,,BEPROACTIV,BEPCFIXEBASIC-1,8.11053
+18169,4340,1723,"2021-06-21 15:56:28",,0,"Pc Fixe Basic HP ProDesk 400 G7 SFF",,,209,,,,BEPROACTIV,BEPCFIXEBASIC-2,8.11053

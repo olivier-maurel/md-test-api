@@ -4,6 +4,11 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    path.absolute: '%kernel.project_dir%'
+    path.public: '%kernel.project_dir%/public'
+    api.url: '%env(API_URL)%'
+    api.token: '%env(API_TOKEN)%'
+    files.folder: 'assets/files/'
 
 services:
     # default configuration for services in *this* file
@@ -20,6 +25,7 @@ services:
             - '../src/Entity/'
             - '../src/Kernel.php'
             - '../src/Tests/'
+            
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
