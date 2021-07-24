@@ -82,56 +82,110 @@ class ApiDbService
 	*/
     public function insertToDatabase($data)
     {
-        $files = glob($this->publicPath.'/'.$this->filesFolder.'*.csv');
-        dump($this->dataToJson($data));exit;
+        //////////////// SUPPRIME AUTOMATIQUE LA BDD AU LANCEMENT
+        $drop = "DROP TABLE `caracteristiques`, `catalogue`, `fabricant`, `grandeur`, `materiels`, `metier`, `references`, `tarifs`, `tarifs_grandeurs`, `type`";
+        $conn = $this->em->getConnection();
+        $stmt = $conn->prepare($drop);
+        $stmt->execute();
+        ////////////////
 
-        foreach ($files as $key => $value) {
-            $exp        = explode('/', $value);
-            $filename   = str_replace('.csv', '', $exp[count($exp)-1]);
-            $value      = file($value);
+        $sql['create']  = '';
+        $sql['insert']  = [];
+        $files          = glob($this->publicPath.'/'.$this->filesFolder.'*.csv');
+        $data           = $this->dataToJson($data);
+        $length         = [
+            'integer' => '(10)',
+            'varchar' => '(255)',
+            'double'  => '(8,4)',
+            'boolean' => ''
+        ];
+        $index   = -1;
+        $counter = 9;
+        $columns = '';
 
-
-
-            dump(floatval('1765.654')); exit;
-
-            if (count($value) > 1) {
-
-                $headers = explode(',',$value[0]);
-                $content = explode(',',$value[1]);
-                dump($headers);
-                dump($content);
-                
-                $columns = '';
-                $index   = 0;
-
-                foreach ($headers as $k => $v) {
-                    $columns = $columns.$v." ".gettype($content[$index]).",\n";
+        // Trie et stock dans un tableau les données d'insertion
+        foreach ($data as $key => $value) {
+            foreach ($value as $ind => $val) {
+                $content = '';
+                $headers = '';
+                foreach ($val as $i => $v) {
+                    $type = gettype($v);
+                    if (gettype($v) == 'NULL') {
+                        if ( substr($i, strlen($i)-2, strlen($i)) == 'id')
+                             $type = 'integer';
+                        else $type = 'boolean';
+                    } elseif (gettype($v) == 'string')
+                        $type = 'varchar';
+                    $headers = $headers."`".$i."`,";
+                    if($v == '' || $v == '[]') {
+                        $v = 'NULL';
+                        $type = 'varchar';
+                    } elseif($type == 'varchar')
+                        $v = "'".$v."'";
+                    $col[$key]["`".$i."`"] = $type.$length[$type].",";
+                    $content = $content.$v.",";
+                }
+                if ($counter > 8) {
+                    $counter = 0;
                     $index++;
                 }
+                $sql['insert'][$index][] = 'INSERT INTO `'.$key."`(".rtrim($headers, ",").') VALUE ('.rtrim($content, ",").');';
+                $counter++;   
+            }
+        }
 
-                $sql = 'CREATE TABLE '.$filename.'('.$columns.')';
+        // Trie et stock dans un tableau les données de création
+        foreach ($col as $key => $value) {
+            $value = (array_unique($value, SORT_REGULAR));
+            foreach ($col[$key] as $k => $v) {
+                if ("`".$key."_id`" == $k)
+                    $v = ( rtrim($v,",")." PRIMARY KEY NOT NULL," );
+                $columns = $columns.$k.' '.$v;
+            }
+            $sql['create'] = $sql['create'].'CREATE TABLE `'.$key."`(".rtrim($columns, ",").');';
+            $columns = '';
+        }
+        
+        // Création des tables
+        $conn = $this->em->getConnection();
+        $stmt = $conn->prepare($sql['create']);  
+        $stmt->execute();
+        
+        // Insertion des données
+        foreach ($sql['insert'] as $index => $value) {
+            $value = (array_unique($value, SORT_REGULAR));
+            foreach ($value as $k => $v) {
+                $stmt = $conn->prepare($v);
+                try {
+                    $stmt->execute();
+                } catch(\Throwable $e) {
+                    if ($e->getPrevious()->getCode() == "23000") {
+                        $start  = str_replace('INSERT INTO','UPDATE',explode('(',$v)[0]);
+                        $col    = explode(',', explode('(', explode(')',$v)[0])[1] );
+                        $val    = explode(',', explode('(', explode(')',$v)[1])[1] );
+                        $v      = $start.' SET ';
+                        foreach ($col as $key => $value) {
+                            if ($value === "`".explode('`',$start)[1]."_id`")
+                                $where = $val[$key];
+                            $v = $v.$value.' = '.$val[$key].',';
+                        }
+                        $v = rtrim($v, ',').' WHERE `'.explode('`',$start)[1].'_id` = '.$where;
+                        $stmt = $conn->prepare($v);
+                        $stmt->execute();        
+                    }
+                }
                 
-
             }
         }
         
+        try {
+            $result = $stmt->fetchAll();
+            dump($result);
+            dump('SUCCESS : Base de donnée hydratée');
+        } catch (\Throwable $th) {
+            dump('ERREUR : '.$th->getMessage());
+        }
         
-        dump($headers, $content);
-        exit;
-
-        $sql = "
-            CREATE TABLE
-        ";
-
-
-        $conn = $this->em->getConnection();
-        $stmt = $conn->prepare($sql);
-        $stmt->execute();
-        var_dump($stmt->fetchAll());die;
-        
-        
-        $exec = system('php ../bin/console doctrine:query:sql '.$sql);
-        dump($exec);
         exit;
         return false;
     }
@@ -153,7 +207,7 @@ class ApiDbService
                             if (gettype($v) == 'object') {
                                 foreach ($v as $name => $w) {
                                     if (gettype($w) == 'array')
-                                        $materiel->$key[0]->$k->$name = null;
+                                        $materiel->$key[0]->$k->$name = '[]';
                                 }
                                 $dataClear[$k][] = (array)$v;
                                 $dataClear[$k] = array_values($this->multipleArrayUnique($dataClear[$k]));
@@ -193,12 +247,11 @@ class ApiDbService
             }  
         }
         $dataClear['materiels'] = $data;
-        dump($dataClear); exit;
         $f = fopen($this->filesFolder.'materiels.json', 'w');
         fwrite($f, json_encode($data));
         fclose($f);
 
-        return true;
+        return $dataClear;
     }
 
     /**
@@ -230,16 +283,21 @@ class ApiDbService
 
     private function multipleArrayUnique($array)
     {
-      $result = array_map("unserialize", array_unique(array_map("serialize", $array)));
-    
-      foreach ($result as $key => $value)
-      {
-        if ( is_array($value) )
+        $result = array_map("unserialize", array_unique(array_map("serialize", $array)));
+        
+        foreach ($result as $key => $value)
         {
-          $result[$key] = $this->multipleArrayUnique($value);
+            if (is_array($value))
+            {
+            $result[$key] = $this->multipleArrayUnique($value);
+            }
         }
-      }
-    
-      return $result;
+        
+        return $result;
+    }
+
+    private function generateColumnsNames($data)
+    {
+        return $data;
     }
 }
