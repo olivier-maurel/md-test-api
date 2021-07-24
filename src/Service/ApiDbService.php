@@ -19,12 +19,12 @@ class ApiDbService
 		$this->apiToken		= $container->getParameter('api.token');
 		$this->filesFolder	= $container->getParameter('files.folder');
 		$this->publicPath	= $container->getParameter('path.public');
+		$this->absolutePath	= $container->getParameter('path.absolute');
         $this->em           = $em;
     }
 
     /**
 	* Retourne les données récupérées dans l'API
-	*
 	* @return array
 	*/
     public function getApiData()
@@ -52,32 +52,7 @@ class ApiDbService
     }
 
     /**
-	* Genère les fichiers JSON et CSV de chaque tables necessaires
-	*
-	* @param array $data
-	* @return bool
-	*/
-    public function generateJsonToCsv($data)
-    {
-        // Récupère les données et les convertient en format JSON
-        $this->dataToJson($data);
-
-        // Récupère les chemins des fichiers JSON créés
-        $files = glob($this->publicPath.'/'.$this->filesFolder.'*.json');
-
-        // Convertit chaques fichiers JSON en format CSV
-        foreach ($files as $key => $file) {
-            $exp = explode('/', $file);
-            $filename = str_replace('.json', '', $exp[count($exp)-1]);
-            $this->jsonToCSV($this->filesFolder.$filename.'.json', $this->filesFolder.$filename.'.csv');
-        }
-        
-        return true;
-    }
-
-    /**
-	* Insert dans la base de donnée les fichiers CSV
-	*
+    * Insert dans la base de donnée les fichiers CSV
 	* @return bool
 	*/
     public function insertToDatabase($data)
@@ -86,12 +61,15 @@ class ApiDbService
         $drop = "DROP TABLE `caracteristiques`, `catalogue`, `fabricant`, `grandeur`, `materiels`, `metier`, `references`, `tarifs`, `tarifs_grandeurs`, `type`";
         $conn = $this->em->getConnection();
         $stmt = $conn->prepare($drop);
-        $stmt->execute();
+        try{
+            $stmt->execute();
+        }catch(\Throwable $th){
+            dump('no drop db');
+        }
         ////////////////
-
+        
         $sql['create']  = '';
         $sql['insert']  = [];
-        $files          = glob($this->publicPath.'/'.$this->filesFolder.'*.csv');
         $data           = $this->dataToJson($data);
         $length         = [
             'integer' => '(10)',
@@ -102,7 +80,7 @@ class ApiDbService
         $index   = -1;
         $counter = 9;
         $columns = '';
-
+        
         // Trie et stock dans un tableau les données d'insertion
         foreach ($data as $key => $value) {
             foreach ($value as $ind => $val) {
@@ -112,16 +90,16 @@ class ApiDbService
                     $type = gettype($v);
                     if (gettype($v) == 'NULL') {
                         if ( substr($i, strlen($i)-2, strlen($i)) == 'id')
-                             $type = 'integer';
+                        $type = 'integer';
                         else $type = 'boolean';
                     } elseif (gettype($v) == 'string')
-                        $type = 'varchar';
+                    $type = 'varchar';
                     $headers = $headers."`".$i."`,";
                     if($v == '' || $v == '[]') {
                         $v = 'NULL';
                         $type = 'varchar';
                     } elseif($type == 'varchar')
-                        $v = "'".$v."'";
+                    $v = "'".$v."'";
                     $col[$key]["`".$i."`"] = $type.$length[$type].",";
                     $content = $content.$v.",";
                 }
@@ -133,69 +111,125 @@ class ApiDbService
                 $counter++;   
             }
         }
-
+        
         // Trie et stock dans un tableau les données de création
         foreach ($col as $key => $value) {
             $value = (array_unique($value, SORT_REGULAR));
+            $primary = '`id` INT PRIMARY KEY NOT NULL AUTO_INCREMENT,';
             foreach ($col[$key] as $k => $v) {
-                if ("`".$key."_id`" == $k)
-                    $v = ( rtrim($v,",")." PRIMARY KEY NOT NULL," );
-                $columns = $columns.$k.' '.$v;
+                if ("`".rtrim($key,'s')."_id`" == $k || "`".$key."_id`" == $k)
+                $primary = $k." ".( rtrim($v,",")." PRIMARY KEY NOT NULL," );
+                else $columns = $columns.$k.' '.$v;
             }
-            $sql['create'] = $sql['create'].'CREATE TABLE `'.$key."`(".rtrim($columns, ",").');';
+            $sql['create'] = $sql['create'].'CREATE TABLE `'.$key."`(".$primary.rtrim($columns, ",").');';
             $columns = '';
         }
         
-        // Création des tables
+        
+        $this->createData($sql);
+        $this->insertData($sql);
+        $this->importSqlFile($this->publicPath.'/assets/files/foreign_keys.sql');
+        $this->generateEntities();
+        // php bin/console doctrine:mapping:import "App\Entity" annotation --path=src/Entity
+        
+        exit;
+        return false;
+    }
+    
+    // Création des tables dans la base de donnée.
+    public function createData($sql)
+    {
         $conn = $this->em->getConnection();
         $stmt = $conn->prepare($sql['create']);  
         $stmt->execute();
         
-        // Insertion des données
+        return [
+            'success' => true,
+            'message' => 'Création des tables de données: OK'
+        ];
+    }
+    
+    // Ajout des données dans la base de donnée.
+    public function insertData($sql)
+    {
+        $conn = $this->em->getConnection();
+
         foreach ($sql['insert'] as $index => $value) {
             $value = (array_unique($value, SORT_REGULAR));
+
             foreach ($value as $k => $v) {
                 $stmt = $conn->prepare($v);
+                
                 try {
+
                     $stmt->execute();
+                
                 } catch(\Throwable $e) {
+                    
                     if ($e->getPrevious()->getCode() == "23000") {
+                        
                         $start  = str_replace('INSERT INTO','UPDATE',explode('(',$v)[0]);
                         $col    = explode(',', explode('(', explode(')',$v)[0])[1] );
                         $val    = explode(',', explode('(', explode(')',$v)[1])[1] );
                         $v      = $start.' SET ';
+                        
                         foreach ($col as $key => $value) {
+                            
                             if ($value === "`".explode('`',$start)[1]."_id`")
                                 $where = $val[$key];
+                            
                             $v = $v.$value.' = '.$val[$key].',';
                         }
+                        
                         $v = rtrim($v, ',').' WHERE `'.explode('`',$start)[1].'_id` = '.$where;
                         $stmt = $conn->prepare($v);
                         $stmt->execute();        
                     }
                 }
-                
             }
         }
         
-        try {
-            $result = $stmt->fetchAll();
-            dump($result);
-            dump('SUCCESS : Base de donnée hydratée');
-        } catch (\Throwable $th) {
-            dump('ERREUR : '.$th->getMessage());
+        return [
+            'success' => true,
+            'message' => 'Insertion des données: OK'
+        ];
+    }
+    
+    // Exécute un fichier SQL.
+    public function importSqlFile($path)
+    {
+        $conn   = $this->em->getConnection();
+        $lines  = file($path);
+        
+        foreach ($lines as $key => $value) {
+            $stmt = $conn->prepare($value);
+            $stmt->execute();
         }
         
-        exit;
-        return false;
+        return [
+            'success' => true,
+            'message' => 'Gestion des clés étrangères: OK'
+        ];
     }
-
+    
+    // Génère les entités depuis la base de donnée.
+    public function generateEntities()
+    {
+        $exe = 'nohup /usr/bin/php ../bin/console doctrine:mapping:import "App\Entity" annotation --path=../src/Entity 2>&1 &';
+        shell_exec($exe);
+        
+        return [
+            'success' => true,
+            'message' => 'Génération des entités: OK'
+        ];
+    }
+    
     /**
-	* Récupère les données et créer les fichiers JSON
-	*
-	* @param array $data
-	* @return bool
-	*/
+     * Récupère les données et créer les fichiers JSON
+     *
+     * @param array $data
+     * @return bool
+     */
     private function dataToJson($data)
     {
         $dataClear = [];
@@ -207,7 +241,7 @@ class ApiDbService
                             if (gettype($v) == 'object') {
                                 foreach ($v as $name => $w) {
                                     if (gettype($w) == 'array')
-                                        $materiel->$key[0]->$k->$name = '[]';
+                                    $materiel->$key[0]->$k->$name = '[]';
                                 }
                                 $dataClear[$k][] = (array)$v;
                                 $dataClear[$k] = array_values($this->multipleArrayUnique($dataClear[$k]));
@@ -250,35 +284,8 @@ class ApiDbService
         $f = fopen($this->filesFolder.'materiels.json', 'w');
         fwrite($f, json_encode($data));
         fclose($f);
-
+        
         return $dataClear;
-    }
-
-    /**
-	* Récupère les fichiers JSON et créer les fichiers CSV
-	*
-	* @param array $data
-	* @return bool
-	*/
-    private function jsonToCSV($jfilename, $cfilename)
-    {
-        if (($json = file_get_contents($jfilename)) == false)
-            die('Error reading json file...');
-        $data = json_decode($json, true);
-        $fp = fopen($cfilename, 'w');
-        $header = false;
-        foreach ($data as $row)
-        {
-            if (empty($header))
-            {
-                $header = array_keys($row);
-                fputcsv($fp, $header);
-                $header = array_flip($header);
-            }
-            fputcsv($fp, array_merge($header, $row));
-        }
-        fclose($fp);
-        return;
     }
 
     private function multipleArrayUnique($array)
@@ -289,15 +296,62 @@ class ApiDbService
         {
             if (is_array($value))
             {
-            $result[$key] = $this->multipleArrayUnique($value);
+                $result[$key] = $this->multipleArrayUnique($value);
             }
         }
-        
+
         return $result;
     }
+    
+    // /**
+    // * Genère les fichiers JSON et CSV de chaque tables necessaires
+    // *
+    // * @param array $data
+    // * @return bool
+    // */
+    // public function generateJsonToCsv($data)
+    // {
+    //     // Récupère les données et les convertient en format JSON
+    //     $this->dataToJson($data);
+    
+    //     // Récupère les chemins des fichiers JSON créés
+    //     $files = glob($this->publicPath.'/'.$this->filesFolder.'*.json');
+    
+    //     // Convertit chaques fichiers JSON en format CSV
+    //     foreach ($files as $key => $file) {
+    //         $exp = explode('/', $file);
+    //         $filename = str_replace('.json', '', $exp[count($exp)-1]);
+    //         $this->jsonToCSV($this->filesFolder.$filename.'.json', $this->filesFolder.$filename.'.csv');
+    //     }
+        
+    //     return true;
+    // }
 
-    private function generateColumnsNames($data)
-    {
-        return $data;
-    }
+    // /**
+	// * Récupère les fichiers JSON et créer les fichiers CSV
+	// *
+	// * @param array $data
+	// * @return bool
+	// */
+    // private function jsonToCSV($jfilename, $cfilename)
+    // {
+        //     if (($json = file_get_contents($jfilename)) == false)
+        //         die('Error reading json file...');
+        //     $data = json_decode($json, true);
+        //     $fp = fopen($cfilename, 'w');
+        //     $header = false;
+        //     foreach ($data as $row)
+        //     {
+            //         if (empty($header))
+            //         {
+                //             $header = array_keys($row);
+                //             fputcsv($fp, $header);
+                //             $header = array_flip($header);
+                //         }
+                //         fputcsv($fp, array_merge($header, $row));
+                //     }
+                //     fclose($fp);
+                //     return;
+                // }
+    
 }
